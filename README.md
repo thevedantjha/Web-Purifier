@@ -33,7 +33,7 @@ Introducing a way to reduce toxic content on the web. Meet Web Purifier, a chrom
 5. Click **Load unpacked**
 6. Select the `build/` folder.
 
-> Only the contents of `build/` should be uploaded
+> Only the contents in `build/` should be uploaded
 
 ---
 
