@@ -52,4 +52,4 @@ MIT License
 ## 🙌 Acknowledgements
 - [Google Chrome Rewriter API](https://developer.chrome.com/docs/ai/rewriter-api)
 - [Xenova/toxic-bert model](https://huggingface.co/Xenova/toxic-bert)
-- [CMU School of Computer Science bad-words.js](https://www.cs.cmu.edu/~biglou/resources/bad-words.txt) (Note: I modified the list to include additional words)
+- [CMU School of Computer Science bad-words.txt](https://www.cs.cmu.edu/~biglou/resources/bad-words.txt) (Note: I modified the list to include additional words)
