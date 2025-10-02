@@ -5,7 +5,7 @@ Introducing a way to reduce toxic content on the web. Meet Web Purifier, a chrom
 
 ## 🌟 Key Features
 - **Toxic sentence detection** using an on-device model, specifically [`Xenova/toxic-bert`](https://huggingface.co/Xenova/toxic-bert).
-- **Rewrite toxic text** into a more neutral, readable version.
+- **Rewrite toxic text** into a more neutral, readable version, using Google Chrome's Built-In AI model [`Rewriter API`](https://developer.chrome.com/docs/ai/rewriter-api).
 - **Customizable styles** for rewritten text: "As-is", "More formal", and "More casual".
 - **Live scanning** for content loaded after page load.
 - **Accessibility options** to customize the color of rewritten text for better visibility.
