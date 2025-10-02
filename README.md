@@ -12,7 +12,7 @@ Introducing a way to reduce toxic content on the web. Meet Web Purifier, a chrom
 
 ---
 
-## ⚠️ Prerequisits
+## ⚠️ Prerequisites
 1. **Browser**
     - Google Chrome version 140 or later
     - APIs on browser
