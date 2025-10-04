@@ -37,6 +37,26 @@ Introducing a way to reduce toxic content on the web. Meet Web Purifier, a chrom
 
 ---
 
+## 🛠️ Editing the Extension Code
+
+> ⚠️ **Do not edit files inside the `build/` folder directly.**  
+> This folder is automatically generated and will be overwritten every time you run a build.
+To make changes to the extension's code:
+1. Edit files in the `src/` and `public/` folders.
+2. After making your changes, open a terminal in the project root and run:
+    ```bash
+    npm install    # Only needed once to install dependencies  
+    npm run build  # Rebuilds the extension
+    ```
+3. The updated extension will be output to the `build/` folder.
+4. Reload the extension in Chrome:  
+   - Go to `chrome://extensions`  
+   - Make sure **Developer Mode** is enabled  
+   - Click the **Reload** button on your extension
+> The `build/` folder contains the production-ready extension and is the only folder that should be loaded into Chrome.
+
+---
+
 ## 🔒 Privacy
 - Complete offline processing, no data sent to external sources.
 - No tracking.
