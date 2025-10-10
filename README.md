@@ -74,4 +74,4 @@ MIT License
 - [Google Chrome Rewriter API](https://developer.chrome.com/docs/ai/rewriter-api)
 - [Xenova/toxic-bert model](https://huggingface.co/Xenova/toxic-bert)
 - CMU School of Computer Science [bad-words.txt](https://www.cs.cmu.edu/~biglou/resources/bad-words.txt) (Note: I modified the list to include additional words)
-- [Google Gemini](https://www.gemini.google.com) for `icon.png`.
+- [Google Gemini](https://gemini.google.com) for `icon.png`.
