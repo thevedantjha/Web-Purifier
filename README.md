@@ -53,7 +53,7 @@ To make changes to the extension's code:
 5. Reload the extension in Chrome:  
    - Go to `chrome://extensions`  
    - Make sure **Developer Mode** is enabled  
-   - Click the **Reload** button on your extension
+   - Click the **Reload** button (⟳ icon) on your extension
 > The `build/` folder contains the production-ready extension and is the only folder that should be loaded into Chrome.
 
 ---
