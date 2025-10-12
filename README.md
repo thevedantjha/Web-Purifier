@@ -19,7 +19,7 @@ Introducing a way to reduce toxic content on the web. Meet Web Purifier, a chrom
         1. Go to `chrome://flags/#rewriter-api-for-gemini-nano` and select `Enable`.
         2. Relaunch Chrome.
 2. **System Requirements**
-    - Windows 10/11, MacOS 13+, Linux, or ChromeOS 16389.0.0 and above.
+    - Windows 10/11, MacOS 13+, Linux, or ChromeOS 16389+.
     - At least 22 GB free space on disk with Chrome profile.
     - More than 4 GB of VRAM.
 
