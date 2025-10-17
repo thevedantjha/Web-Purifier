@@ -6,7 +6,7 @@ Make the internet a calmer place. Automatically rewrite toxic text, or blur imag
 ## 🌟 Key Features
 - **Toxic sentence detection** using an on-device model, specifically [`Xenova/toxic-bert`](https://huggingface.co/Xenova/toxic-bert).
 - **Rewrite toxic text** into a more neutral, readable version, using Google Chrome's Built-In on-device AI model [`Rewriter API`](https://developer.chrome.com/docs/ai/rewriter-api).
-    - **Customizable styles** for rewritten text: "Default", "Formal", and "Casual".
+    - **Customizable styles** for rewritten text: `Default`, `Formal`, and `Casual`.
     - **Accessibility option** to customize the color of rewritten text for better visibility.
 - **Blur images** containing unfriendly text, using Google Chrome's Built-In on-device AI model [`Prompt API`](https://developer.chrome.com/docs/ai/prompt-api).
     - **Accessibility option** to toggle on/off hover to view blurred image.
@@ -73,8 +73,8 @@ MIT License
 ---
 
 ## 🙌 Acknowledgements
-- [Google Chrome built-in Rewriter API](https://developer.chrome.com/docs/ai/rewriter-api)
-- [`Google Chrome built-in Prompt API`](https://developer.chrome.com/docs/ai/prompt-api)
-- [Xenova/toxic-bert model](https://huggingface.co/Xenova/toxic-bert)
+- Google Chrome built-in [Rewriter API](https://developer.chrome.com/docs/ai/rewriter-api)
+- Google Chrome built-in [Prompt API](https://developer.chrome.com/docs/ai/prompt-api)
+- [Xenova/toxic-bert](https://huggingface.co/Xenova/toxic-bert) model
 - CMU School of Computer Science [bad-words.txt](https://www.cs.cmu.edu/~biglou/resources/bad-words.txt) (Note: I modified the list to include additional words)
-- Google Gemini for `icon.png`.
+- Google Gemini for `icon.png`
