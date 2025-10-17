@@ -54,7 +54,7 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   function updateHoverEmoji(isChecked) {
-    hoverEmoji.textContent = isChecked ? "✔️" : "❌";
+    hoverEmoji.textContent = isChecked ? "✓" : "✕";
   }
 
   function updateButton(isOn) {
