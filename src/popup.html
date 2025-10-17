@@ -3,28 +3,46 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Detoxify</title>
+  <title>Relaxed Web</title>
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
   <div class="container">
-    <h1 class="title">Web Purifier</h1>
-    <h2 class="subtitle">Toxic and harmful content will be rewritten to be nicer. Text will be removed if a non-toxic or non-harmful replacement isn't possible. This is not a profanity filter.</h2>
+    <div class="header">
+      <img src="icons/icon.png" alt="Relaxed Web Icon" class="icon" />
+      <h1 class="title">Relaxed Web</h1>
+    </div>
+
+    <p class="description">
+      Make the internet a calmer place. Automatically rewrite toxic text, or blur images with unfriendly text thanks to Chrome built-in AI.
+    </p>
+    <p class="note">Note: This is not a profanity filter.</p>
 
     <button id="toggleButton" class="toggle-off large-button">Turn ON</button>
 
     <label for="styleSelector">Text Replacement Style:</label>
     <select id="styleSelector">
-      <option value="as-is">As-is</option>
-      <option value="more-formal">More Formal</option>
-      <option value="more-casual">More Casual</option>
+      <option value="as-is">Default</option>
+      <option value="more-formal">Formal</option>
+      <option value="more-casual">Casual</option>
     </select>
 
     <div class="accessibility-box">
       <h2>Accessibility</h2>
-      <label for="colorPicker">Text Replacement Color:</label>
-      <input type="color" id="colorPicker" value="#008000" />
-      <button id="applyColorButton" class="checkmark-button">✓</button>
+      <div class="color-picker-row">
+        <label for="colorPicker">Text Replacement Color:</label>
+        <div class="color-picker-wrapper">
+          <input type="color" id="colorPicker" value="#008000" />
+        </div>
+      </div>
+      <div class="checkbox-row">
+        <label for="hoverViewCheckbox">Hover View Image:</label>
+        <div class="checkbox-wrapper" id="hoverViewWrapper">
+          <input type="checkbox" id="hoverViewCheckbox" />
+          <span id="hoverEmoji">❌</span>
+        </div>
+      </div>
+      <button id="applyColorButton" class="checkmark-button">✔ Apply</button>
     </div>
   </div>
   <script src="popup.js"></script>

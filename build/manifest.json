@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "Web Purifier",
-  "description": "Toxic and harmful content will be rewritten to be nicer. Text will be removed if a non-toxic or non-harmful replacement isn't possible. This is not a profanity filter.",
+  "name": "Relaxed Web",
+  "description": "Make the internet a calmer place. Automatically rewrite toxic text, or blur images with unfriendly text thanks to Chrome built-in AI.",
   "version": "1.0.0",
   "permissions": [
     "activeTab",
@@ -29,7 +29,7 @@
       "24": "icons/icon.png",
       "32": "icons/icon.png"
     },
-    "default_title": "Transformers.js",
+    "default_title": "Relaxed Web",
     "default_popup": "popup.html"
   },
   "content_security_policy": {
@@ -41,5 +41,4 @@
     "128": "icons/icon.png"
   },
   "host_permissions": ["<all_urls>"]
-
 }

@@ -3,15 +3,21 @@ document.addEventListener("DOMContentLoaded", () => {
   const styleSelector = document.getElementById('styleSelector');
   const colorPicker = document.getElementById('colorPicker');
   const applyColorButton = document.getElementById('applyColorButton');
+  const hoverViewCheckbox = document.getElementById('hoverViewCheckbox');
+  const hoverEmoji = document.getElementById('hoverEmoji');
 
-  chrome.storage.local.get(['isTheExtensionOn', 'textStyleSelected', 'lightBarColor'], (data) => {
+  chrome.storage.local.get(['isTheExtensionOn', 'textStyleSelected', 'lightBarColor', 'hoverUnblur'], (data) => {
     const isOn = data.isTheExtensionOn || false;
     const textStyle = data.textStyleSelected || 'as-is';
     const lightBarColor = data.lightBarColor || '#008000';
+    const hoverUnblur = data.hoverUnblur !== undefined ? data.hoverUnblur : true;
+
 
     updateButton(isOn);
     styleSelector.value = textStyle;
     colorPicker.value = lightBarColor;
+    hoverViewCheckbox.checked = hoverUnblur;
+    updateHoverEmoji(hoverUnblur);
   });
 
   toggleButton.addEventListener('click', () => {
@@ -33,10 +39,23 @@ document.addEventListener("DOMContentLoaded", () => {
 
   applyColorButton.addEventListener('click', () => {
     const selectedColor = colorPicker.value;
-    chrome.storage.local.set({ 'lightBarColor': selectedColor }, () => {
+    const hoverUnblur = hoverViewCheckbox.checked;
+
+    chrome.storage.local.set({
+      'lightBarColor': selectedColor,
+      'hoverUnblur': hoverUnblur
+    }, () => {
       chrome.tabs.reload();
     });
   });
+
+  hoverViewCheckbox.addEventListener('change', () => {
+    updateHoverEmoji(hoverViewCheckbox.checked);
+  });
+
+  function updateHoverEmoji(isChecked) {
+    hoverEmoji.textContent = isChecked ? "✔️" : "❌";
+  }
 
   function updateButton(isOn) {
     if (isOn) {

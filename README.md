@@ -1,25 +1,27 @@
-# Web Purifier
-Introducing a way to reduce toxic content on the web. Meet Web Purifier, a Google Chrome extension for replacing toxic content while browsing with neutral, safe text. Private with all processing on-device.
+# Relaxed Web
+Make the internet a calmer place. Automatically rewrite toxic text, or blur images with unfriendly text thanks to Chrome built-in AI. Private with all processing on-device.
 
 ---
 
 ## 🌟 Key Features
 - **Toxic sentence detection** using an on-device model, specifically [`Xenova/toxic-bert`](https://huggingface.co/Xenova/toxic-bert).
 - **Rewrite toxic text** into a more neutral, readable version, using Google Chrome's Built-In on-device AI model [`Rewriter API`](https://developer.chrome.com/docs/ai/rewriter-api).
-- **Customizable styles** for rewritten text: "As-is", "More formal", and "More casual".
+    - **Customizable styles** for rewritten text: "Default", "Formal", and "Casual".
+    - **Accessibility option** to customize the color of rewritten text for better visibility.
+- **Blur images** containing unfriendly text, using Google Chrome's Built-In on-device AI model [`Prompt API`](https://developer.chrome.com/docs/ai/prompt-api).
+    - **Accessibility option** to toggle on/off hover to view blurred image.
 - **Live scanning** for content loaded after page load.
-- **Accessibility options** to customize the color of rewritten text for better visibility.
 
 ---
 
 ## ⚠️ Prerequisites
 1. **Browser**
-    - Google Chrome version 140 or later
+    - Latest version of Google Chrome.
     - APIs on browser
-        1. Go to `chrome://flags/#rewriter-api-for-gemini-nano` and select `Enable`.
+        1. Go to [`chrome://flags/#rewriter-api-for-gemini-nano`](chrome://flags/#rewriter-api-for-gemini-nano) and select `Enable`.
         2. Relaunch Chrome.
 2. **System Requirements**
-    - Windows 10/11, MacOS 13+, Linux, or ChromeOS 16389+.
+    - Windows 10/11, MacOS 13+, Linux, or ChromeOS 16389.0.0 and above.
     - At least 22 GB free space on disk with Chrome profile.
     - More than 4 GB of VRAM.
 
@@ -53,7 +55,7 @@ To make changes to the extension's code:
 5. Reload the extension in Chrome:  
    - Go to `chrome://extensions`  
    - Make sure **Developer Mode** is enabled  
-   - Click the **Reload** button (⟳ icon) on your extension
+   - Click the **Reload** button on your extension
 > The `build/` folder contains the production-ready extension and is the only folder that should be loaded into Chrome.
 
 ---
@@ -71,7 +73,8 @@ MIT License
 ---
 
 ## 🙌 Acknowledgements
-- [Google Chrome Rewriter API](https://developer.chrome.com/docs/ai/rewriter-api)
+- [Google Chrome built-in Rewriter API](https://developer.chrome.com/docs/ai/rewriter-api)
+- [`Google Chrome built-in Prompt API`](https://developer.chrome.com/docs/ai/prompt-api)
 - [Xenova/toxic-bert model](https://huggingface.co/Xenova/toxic-bert)
 - CMU School of Computer Science [bad-words.txt](https://www.cs.cmu.edu/~biglou/resources/bad-words.txt) (Note: I modified the list to include additional words)
-- [Google Gemini](https://gemini.google.com) for `icon.png`.
+- Google Gemini for `icon.png`.

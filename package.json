@@ -1,7 +1,7 @@
 {
-  "name": "webpurifier",
+  "name": "relaxed-web",
   "version": "1.0.0",
-  "description": "Toxic and harmful content will be rewritten to be nicer. Text will be removed if a non-toxic or non-harmful replacement isn't possible. This is not a profanity filter.",
+  "description": "Make the internet a calmer place. Automatically rewrite toxic text, or blur images with unfriendly text thanks to Chrome built-in AI.",
   "scripts": {
     "build": "webpack",
     "dev": "webpack --watch"

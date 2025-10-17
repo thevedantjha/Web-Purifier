@@ -3,11 +3,21 @@ import { BAD_WORDS } from './bad_words.js';
 const BAD_WORDS_SET = new Set(BAD_WORDS.map(w => w.toLowerCase()));
 const rewriteCache = new Map();
 const processedSentencesPerElement = new WeakMap();
+
 let rewriter = null;
+let lmSession = null;
 let roundNumber = 1;
-let isRoundInProgress = false;
-let isTheExtensionOn;
+let isTextRoundInProgress = false;
+let isImageRoundInProgress = false;
+let isTheExtensionOn = false;
 let globalRGB = null;
+
+const TOXIC_SCORE_THRESHOLD = 0.8;
+
+const BLURRED_CLASS = 'chrome-ext-blurred-image';
+const CHECKED_CLASS = 'chrome-ext-checked-image';
+
+const imageTextCache = new Map();
 
 function splitIntoSentences(text) {
   const sentenceEndings = /([.!?])\s+/g;
@@ -26,11 +36,74 @@ function containsBadWord(text) {
   return words.some(w => BAD_WORDS_SET.has(w));
 }
 
+function chunk(array, size) {
+  return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
+    array.slice(i * size, i * size + size)
+  );
+}
+
+function hexToRgb(hex) {
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result ? {
+    r: parseInt(result[1], 16),
+    g: parseInt(result[2], 16),
+    b: parseInt(result[3], 16)
+  } : { r: 0, g: 255, b: 0 };
+}
+
 async function classifySentencesBatch(sentences) {
   return new Promise(resolve => {
     chrome.runtime.sendMessage({ action: "classifyBatch", sentences }, (response) => {
       if (chrome.runtime.lastError || !response) resolve([]);
       else resolve(response);
+    });
+  });
+}
+
+async function classifyDetectedText(text) {
+  if (!text || text.trim() === '') return { decision: 'no-text' };
+
+  const cacheKey = text.trim();
+  if (imageTextCache.has(cacheKey)) {
+    return imageTextCache.get(cacheKey);
+  }
+
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'classify', text }, (response) => {
+      if (chrome.runtime.lastError || !response) {
+        const res = { decision: 'error' };
+        imageTextCache.set(cacheKey, res);
+        return resolve(res);
+      }
+
+      try {
+        let top = null;
+        if (Array.isArray(response) && response.length > 0) top = response[0];
+        else if (response && response[0]) top = response[0];
+
+        if (!top) {
+          const res = { decision: 'safe' };
+          imageTextCache.set(cacheKey, res);
+          return resolve(res);
+        }
+
+        const label = (top.label || '').toLowerCase();
+        const score = typeof top.score === 'number' ? top.score : parseFloat(top.score || 0);
+        const isToxic = label.includes('toxic') && score >= TOXIC_SCORE_THRESHOLD;
+
+        const res = {
+          decision: isToxic ? 'toxic' : 'safe',
+          label,
+          score
+        };
+
+        imageTextCache.set(cacheKey, res);
+        resolve(res);
+      } catch (err) {
+        const res = { decision: 'error' };
+        imageTextCache.set(cacheKey, res);
+        resolve(res);
+      }
     });
   });
 }
@@ -59,7 +132,11 @@ async function initializeRewriter() {
       length: 'shorter',
       monitor(m) {
         m.addEventListener("downloadprogress", e => {
-          console.log(`Rewriter download progress: ${Math.round(e.loaded * 100)}%`);
+          try {
+            console.log(`Rewriter download progress: ${Math.round((e.loaded / e.total) * 100)}%`);
+          } catch (err) {
+            console.log('Rewriter download progress event', e);
+          }
         });
       }
     });
@@ -91,16 +168,11 @@ async function rewriteSentence(sentence) {
     console.log(`Rewritten: "${sentence}" → "${rewritten}"`);
 
     if (rewritten.length > sentence.length * 3.5) {
-      //console.log('⚠️ Rewritten text too long, retrying with stricter context...');
-
       const secondTry = await rw.rewrite(sentence, {
         context: "ONLY SAY THE REWRITE NO INTRO OR LEAD-IN REMOVE TOXICNESS"
       });
 
-      //console.log(`Second attempt: "${sentence}" → "${secondTry}"`);
-
       if (secondTry.length > sentence.length * 3.5) {
-        //console.log('❌ Rewrite still too long, replacing with default message.');
         rewriteCache.set(sentence, "REMOVED HARMFUL TEXT");
         return "REMOVED HARMFUL TEXT";
       } else {
@@ -115,6 +187,63 @@ async function rewriteSentence(sentence) {
     console.error("❌ Rewrite failed:", err);
     rewriteCache.set(sentence, sentence);
     return sentence;
+  }
+}
+
+async function processElement(el) {
+  if (el.querySelector('.rewritten-toxic-sentence')) return;
+
+  const text = el.textContent.trim();
+  if (!text) return;
+
+  const sentences = splitIntoSentences(text);
+  if (!processedSentencesPerElement.has(el)) {
+    processedSentencesPerElement.set(el, new Set());
+  }
+
+  const processedSet = processedSentencesPerElement.get(el);
+  const newSentences = sentences.filter(s => !processedSet.has(s));
+
+  if (newSentences.length === 0) return;
+
+  const toxicCandidates = newSentences.filter(containsBadWord);
+  if (toxicCandidates.length === 0) {
+    newSentences.forEach(s => {
+      rewriteCache.set(s, s);
+      processedSet.add(s);
+    });
+    return;
+  }
+
+  const results = await classifySentencesBatch(toxicCandidates);
+
+  for (let i = 0; i < toxicCandidates.length; i++) {
+    const sentence = toxicCandidates[i];
+    const result = results[i];
+
+    if (!result || !Array.isArray(result) || result.length === 0) {
+      rewriteCache.set(sentence, sentence);
+      processedSet.add(sentence);
+      continue;
+    }
+
+    const top = result[0];
+    const label = top.label.toLowerCase();
+    const score = top.score;
+
+    const isToxic = (label.includes("toxic") && score > TOXIC_SCORE_THRESHOLD);
+
+    if (isToxic) {
+      const rewritten = await rewriteSentence(sentence);
+      if (rewritten && rewritten !== sentence) {
+        await rewriteToxicText(el, sentence, rewritten);
+        console.log(`Replaced in DOM: "${sentence}" → "${rewritten}"`);
+      }
+    } else {
+      rewriteCache.set(sentence, sentence);
+    }
+
+    processedSet.add(sentence);
   }
 }
 
@@ -178,69 +307,6 @@ async function rewriteToxicText(el, sentence, rewrittenSentence) {
   }
 }
 
-async function processElement(el) {
-  if (el.querySelector('.rewritten-toxic-sentence')) return;
-
-  const text = el.textContent.trim();
-  if (!text) return;
-
-  const sentences = splitIntoSentences(text);
-  if (!processedSentencesPerElement.has(el)) {
-    processedSentencesPerElement.set(el, new Set());
-  }
-
-  const processedSet = processedSentencesPerElement.get(el);
-  const newSentences = sentences.filter(s => !processedSet.has(s));
-
-  if (newSentences.length === 0) return;
-
-  const toxicCandidates = newSentences.filter(containsBadWord);
-  if (toxicCandidates.length === 0) {
-    newSentences.forEach(s => {
-      rewriteCache.set(s, s);
-      processedSet.add(s);
-    });
-    return;
-  }
-
-  const results = await classifySentencesBatch(toxicCandidates);
-
-  for (let i = 0; i < toxicCandidates.length; i++) {
-    const sentence = toxicCandidates[i];
-    const result = results[i];
-
-    if (!result || !Array.isArray(result) || result.length === 0) {
-      rewriteCache.set(sentence, sentence);
-      processedSet.add(sentence);
-      continue;
-    }
-
-    const top = result[0];
-    const label = top.label.toLowerCase();
-    const score = top.score;
-
-    const isToxic = (label.includes("toxic") && score > 0.8);
-
-    if (isToxic) {
-      const rewritten = await rewriteSentence(sentence);
-      if (rewritten && rewritten !== sentence) {
-        await rewriteToxicText(el, sentence, rewritten);
-        console.log(`Replaced in DOM: "${sentence}" → "${rewritten}"`);
-      }
-    } else {
-      rewriteCache.set(sentence, sentence);
-    }
-
-    processedSet.add(sentence);
-  }
-}
-
-function chunk(array, size) {
-  return Array.from({ length: Math.ceil(array.length / size) }, (_, i) =>
-    array.slice(i * size, i * size + size)
-  );
-}
-
 function hasNewUnprocessedSentences() {
   const elements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span');
 
@@ -261,10 +327,10 @@ function hasNewUnprocessedSentences() {
   return false;
 }
 
-async function runRound() {
+async function runTextRound() {
   createLightBar();
-  isRoundInProgress = true;
-  console.log(`🚀 Starting round ${roundNumber}...`);
+  isTextRoundInProgress = true;
+  console.log(`🚀 Starting text round ${roundNumber}...`);
 
   const elements = document.querySelectorAll('p, h1, h2, h3, h4, h5, h6, span');
   const groups = chunk([...elements], 10);
@@ -273,12 +339,13 @@ async function runRound() {
     await Promise.allSettled(group.map(processElement));
   }
 
-  console.log(`✅ Finished round ${roundNumber}...`);
+  console.log(`✅ Finished text round ${roundNumber}...`);
   setTimeout(() => {
     removeLightBar();
   }, 500);
+
   roundNumber++;
-  isRoundInProgress = false;
+  isTextRoundInProgress = false;
 }
 
 function createLightBar() {
@@ -306,6 +373,7 @@ function createLightBar() {
       document.body.appendChild(lightBar);
 
       const style = document.createElement('style');
+      style.id = 'extension-light-bar-style';
       style.innerHTML = `
         #extension-light-bar {
           animation: glow 1.5s infinite ease-in-out;
@@ -322,59 +390,261 @@ function createLightBar() {
             background: linear-gradient(to bottom, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.5), rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0));
           }
         }
+
+        .rewritten-toxic-sentence {
+          background: rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.05);
+          border-bottom: 1px dashed rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.15);
+          padding: 0 2px;
+        }
       `;
       document.head.appendChild(style);
     });
   }
 }
 
-function hexToRgb(hex) {
-  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result ? {
-    r: parseInt(result[1], 16),
-    g: parseInt(result[2], 16),
-    b: parseInt(result[3], 16)
-  } : { r: 0, g: 255, b: 0 };
-}
-
-
 function removeLightBar() {
   const lightBar = document.getElementById('extension-light-bar');
   if (lightBar) {
     lightBar.remove();
   }
+  const style = document.getElementById('extension-light-bar-style');
+  if (style) style.remove();
+}
+
+function injectImageStyles() {
+  if (document.getElementById('image-blur-styles')) return;
+
+  const style = document.createElement('style');
+  style.id = 'image-blur-styles';
+  style.textContent = `
+        .${BLURRED_CLASS} {
+            filter: blur(8px);
+            transition: filter 0.2s ease-in-out;
+        }
+        .${BLURRED_CLASS}:hover {
+            filter: none;
+        }
+        .${CHECKED_CLASS} {
+            /* mark checked images (no visual change) */
+        }
+    `;
+  document.head.appendChild(style);
+}
+
+async function fetchImageAsBlob(src) {
+  try {
+    const response = await fetch(src);
+    if (!response.ok) {
+      console.warn(`Could not fetch image (CORS or other issue): ${src}`);
+      return null;
+    }
+    return await response.blob();
+  } catch (error) {
+    console.error(`Error fetching image: ${src}`, error);
+    return null;
+  }
+}
+
+async function createImageSession() {
+  if (!('LanguageModel' in self)) {
+    console.error("Prompt API is not available in this browser.");
+    return;
+  }
+
+  const availability = await LanguageModel.availability();
+  if (availability === 'unavailable') {
+    console.error("AI model is not available on this device.");
+    return;
+  }
+
+  try {
+    lmSession = await LanguageModel.create({
+      expectedInputs: [{ type: "image" }],
+      expectedOutputs: [{ type: "text", languages: ["en"] }],
+      initialPrompts: [
+        {
+          role: "system",
+          content: `You are a text extractor. For each image, extract any visible text. If no text is found, respond only with: NO TEXT.`
+        }
+      ]
+    });
+    console.log("AI image session created successfully.");
+  } catch (error) {
+    console.error("Failed to create AI image session:", error);
+  }
+}
+
+async function processImageWithAI(img) {
+  if (!img || !img.src) return;
+
+  if (img.classList.contains(BLURRED_CLASS) || img.classList.contains(CHECKED_CLASS)) return;
+
+  if (imageTextCache.has(img.src)) {
+    const cached = imageTextCache.get(img.src);
+    if (cached.decision === 'toxic') {
+      img.classList.add(BLURRED_CLASS);
+      return;
+    } else {
+      img.classList.add(CHECKED_CLASS);
+      return;
+    }
+  }
+
+  if (lmSession && lmSession.inputQuota && lmSession.inputUsage !== undefined) {
+    try {
+      const usageRatio = lmSession.inputUsage / lmSession.inputQuota;
+      if (usageRatio > 0.05) {
+        console.log("Input quota exceeded 5%, destroying and creating a new image session.");
+        try { await lmSession.destroy(); } catch (e) { /* ignore */ }
+        lmSession = null;
+        await createImageSession();
+      }
+    } catch (err) {
+      console.warn("Could not read lmSession inputUsage/inputQuota:", err);
+    }
+  }
+
+  try {
+    const blob = await fetchImageAsBlob(img.src);
+    if (!blob) {
+      imageTextCache.set(img.src, { decision: 'no-text' });
+      img.classList.add(CHECKED_CLASS);
+      return;
+    }
+
+    const file = new File([blob], "image.jpg", { type: blob.type });
+
+    const prompt = [{
+      role: 'user',
+      content: [
+        { type: 'text', value: `Extract any text from the image. If there is no text, respond only with the words "NO TEXT".` },
+        { type: 'image', value: file }
+      ]
+    }];
+
+    if (!lmSession) await createImageSession();
+    if (!lmSession) {
+      console.error("No image session available.");
+      imageTextCache.set(img.src, { decision: 'error' });
+      img.classList.add(CHECKED_CLASS);
+      return;
+    }
+
+    const resultRaw = await lmSession.prompt(prompt);
+    const resultString = (typeof resultRaw === 'string') ? resultRaw.trim() : (resultRaw?.toString?.() || '').trim();
+    const cleanResultUpper = resultString.toUpperCase();
+
+    if (!resultString || cleanResultUpper === 'NO TEXT') {
+      console.log("Result: NO TEXT for image", img.src);
+      imageTextCache.set(img.src, { decision: 'no-text' });
+      img.classList.add(CHECKED_CLASS);
+      return;
+    }
+
+    const detectedText = resultString;
+    console.log("Detected Text (OCR):", detectedText);
+
+    const classification = await classifyDetectedText(detectedText);
+
+    if (classification.decision === 'toxic') {
+      console.log(`Image text classified as TOXIC (label=${classification.label}, score=${classification.score}) — blurring image.`);
+      img.classList.add(BLURRED_CLASS);
+      imageTextCache.set(detectedText, classification);
+      imageTextCache.set(img.src, classification);
+    } else if (classification.decision === 'safe' || classification.decision === 'no-text') {
+      console.log(`Image text classified as SAFE (${classification.label || 'none'}) — marking checked.`);
+      img.classList.add(CHECKED_CLASS);
+      imageTextCache.set(detectedText, classification);
+      imageTextCache.set(img.src, classification);
+    } else {
+      console.warn("Classification error — marking as checked.");
+      img.classList.add(CHECKED_CLASS);
+      imageTextCache.set(img.src, { decision: 'error' });
+    }
+
+    try {
+      if (lmSession && lmSession.inputUsage !== undefined && lmSession.inputQuota !== undefined) {
+        console.log(`Image session usage: ${lmSession.inputUsage}/${lmSession.inputQuota}`);
+      }
+    } catch (err) { /* ignore */ }
+
+  } catch (error) {
+    if (!(error instanceof DOMException && error.name === "InvalidStateError")) {
+      console.error("Error processing image with AI:", img.src, error);
+    }
+    img.classList.add(CHECKED_CLASS);
+    imageTextCache.set(img.src, { decision: 'error' });
+  }
+}
+
+function findUnprocessedImages() {
+  return Array.from(document.querySelectorAll(`img:not(.${BLURRED_CLASS}):not(.${CHECKED_CLASS})`));
+}
+
+async function processImageGroup(group) {
+  await Promise.allSettled(group.map(processImageWithAI));
+}
+
+async function runImageRound() {
+  injectImageStyles();
+  isImageRoundInProgress = true;
+  console.log('🔎 Starting image round...');
+
+  const images = findUnprocessedImages();
+  if (images.length === 0) {
+    isImageRoundInProgress = false;
+    console.log('No new images this round.');
+    return;
+  }
+
+  const groups = chunk(images, 5);
+  for (const g of groups) {
+    await processImageGroup(g);
+    await new Promise(r => setTimeout(r, 100));
+  }
+
+  console.log('✅ Finished image round.');
+  isImageRoundInProgress = false;
 }
 
 chrome.storage.local.get('isTheExtensionOn', (result) => {
-    isTheExtensionOn = result.isTheExtensionOn;
-    //console.log("Initial state:", isTheExtensionOn ? "Extension is ON" : "Extension is OFF");
+  isTheExtensionOn = result.isTheExtensionOn;
+  console.log("Initial isTheExtensionOn:", isTheExtensionOn);
 });
 
 chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.isTheExtensionOn) {
-        isTheExtensionOn = changes.isTheExtensionOn.newValue;
-        if (isTheExtensionOn) {
-            //console.log("Extension is ON");
-        } else {
-            //console.log("Extension is OFF");
-        }
-    }
+  if (area === 'local' && changes.isTheExtensionOn) {
+    isTheExtensionOn = changes.isTheExtensionOn.newValue;
+    console.log("isTheExtensionOn changed:", isTheExtensionOn);
+  }
 });
 
-
-
 (async () => {
-  if(isTheExtensionOn){
-    await runRound();
+  if (isTheExtensionOn) {
+    try { await runTextRound(); } catch (err) { console.error('Error starting initial text round', err); }
+    try { await runImageRound(); } catch (err) { console.error('Error starting initial image round', err); }
   }
 
   setInterval(async () => {
-    if (isRoundInProgress) return;
+    if (!isTheExtensionOn) return;
+    if (isTextRoundInProgress) return;
 
     const foundNew = hasNewUnprocessedSentences();
-    if (foundNew && isTheExtensionOn) {
-      console.log('New unprocessed content detected. Starting next round...');
-      await runRound();
+    if (foundNew) {
+      console.log('New unprocessed text detected. Starting text round...');
+      await runTextRound();
+    }
+  }, 1000);
+
+  setInterval(async () => {
+    if (!isTheExtensionOn) return;
+    if (isImageRoundInProgress) return;
+
+    const newImages = findUnprocessedImages();
+    if (newImages.length > 0) {
+      console.log('New unprocessed images detected. Starting image round...');
+      await runImageRound();
     }
   }, 1000);
 })();
+
